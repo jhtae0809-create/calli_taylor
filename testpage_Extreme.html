@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Spartan Hell Mode 🔥</title>
+    <style>
+        /* (스타일은 기존과 동일) */
+        body { font-family: 'Segoe UI', sans-serif; background: #222; color: #fff; margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        #chat { flex: 1; overflow-y: scroll; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+        .msg { padding: 12px 16px; border-radius: 12px; max-width: 80%; line-height: 1.5; }
+        .user { align-self: flex-end; background: #f1c40f; color: #000; }
+        .ai { align-self: flex-start; background: #ecf0f1; color: #000; }
+        #controls { padding: 20px; background: #333; text-align: center; }
+        .listening { color: #e74c3c; animation: pulse 0.5s infinite; font-weight: bold; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+    <div id="chat">
+        <div class="msg ai">👿 I don't have all day. Speak FAST or get out!</div>
+    </div>
+    <div id="controls">
+        <span id="status">Ready</span>
+        <button onclick="init()">🔥 Start Hell Mode</button>
+        <p>[Space]를 누르고 말하세요. <b>1초만 머뭇거려도 짤립니다.</b></p>
+    </div>
+
+    <script>
+        let socket, audioCtx, processor, source, stream, analyser;
+        let isRecording = false;
+        let silenceStart = 0; // 침묵 시작 시간
+        let silenceThreshold = 0.02; // 침묵 기준 볼륨 (0~1 사이, 잡음 환경에 따라 조절 필요)
+        let silenceLimit = 1500; // 1.5초 이상 침묵하면 바로 컷!
+
+        function init() {
+            socket = new WebSocket("ws://localhost:8000/ws/kim-secretary");
+            
+            socket.onopen = async () => {
+                document.getElementById('status').innerText = "🔥 HELL MODE ACTIVATED";
+                
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                source = audioCtx.createMediaStreamSource(stream);
+                
+                // 🔊 볼륨 분석기 추가
+                analyser = audioCtx.createAnalyser();
+                analyser.fftSize = 256;
+                source.connect(analyser);
+
+                processor = audioCtx.createScriptProcessor(4096, 1, 1);
+                source.connect(processor);
+                processor.connect(audioCtx.destination);
+
+                processor.onaudioprocess = (e) => {
+                    if (!isRecording) return;
+                    
+                    // 1. 오디오 전송
+                    const inputData = e.inputBuffer.getChannelData(0);
+                    const pcmData = new Int16Array(inputData.length);
+                    for (let i = 0; i < inputData.length; i++) {
+                        pcmData[i] = Math.max(-1, Math.min(1, inputData[i])) * 0x7FFF;
+                    }
+                    let binary = '';
+                    const bytes = new Uint8Array(pcmData.buffer);
+                    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+                    socket.send(JSON.stringify({type: "input_audio_buffer.append", audio: window.btoa(binary)}));
+
+                    // 2. 🔥 침묵 감지 로직 (Hell Mode 핵심)
+                    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+                    analyser.getByteFrequencyData(dataArray);
+                    
+                    // 평균 볼륨 계산
+                    let sum = 0;
+                    for(let i=0; i<dataArray.length; i++) sum += dataArray[i];
+                    let average = sum / dataArray.length;
+                    
+                    // 볼륨이 기준치보다 낮으면 (침묵)
+                    if (average < 10) { // 10은 실험값 (잡음에 따라 조절)
+                        if (Date.now() - silenceStart > silenceLimit) {
+                            // 💥 강제 종료 트리거 발동!
+                            stopRecording(true); 
+                        }
+                    } else {
+                        silenceStart = Date.now(); // 말하고 있으면 타이머 리셋
+                    }
+                };
+            };
+
+            socket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === 'response.audio.delta') playAudio(data.delta);
+                if (data.type === 'user_text') appendBubble(data.text, 'user');
+                if (data.type === 'ai_stream') appendStreamBubble(data.text);
+                if (data.type === 'ai_done') currentAiBubble = null;
+            };
+        }
+
+        let currentAiBubble = null;
+        function appendStreamBubble(text) {
+            if (!currentAiBubble) {
+                currentAiBubble = document.createElement('div');
+                currentAiBubble.className = 'msg ai';
+                currentAiBubble.innerText = '👿 ';
+                document.getElementById('chat').appendChild(currentAiBubble);
+            }
+            currentAiBubble.innerText += text;
+            document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
+        }
+
+        function appendBubble(text, type) {
+            const div = document.createElement('div');
+            div.className = `msg ${type}`;
+            div.innerText = type === 'user' ? `😰 ${text}` : text;
+            document.getElementById('chat').appendChild(div);
+            document.getElementById('chat').scrollTop = document.getElementById('chat').scrollHeight;
+        }
+
+        function stopRecording(isForced = false) {
+            if (!isRecording) return;
+            isRecording = false;
+            document.getElementById('status').innerText = isForced ? "💥 컷! (너무 느려)" : "⏳ 처리 중...";
+            document.getElementById('status').className = "";
+
+            if (socket) {
+                if (isForced) {
+                    // 강제 종료 신호 전송
+                    socket.send(JSON.stringify({type: "hesitation_detected"}));
+                } else {
+                    // 정상 종료
+                    socket.send(JSON.stringify({type: "input_audio_buffer.commit"}));
+                    socket.send(JSON.stringify({type: "response.create"}));
+                }
+            }
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && !isRecording) {
+                isRecording = true;
+                silenceStart = Date.now(); // 타이머 시작
+                document.getElementById('status').innerText = "🎙️ SPEAK FAST!!";
+                document.getElementById('status').className = "listening";
+                if(socket) socket.send(JSON.stringify({type: "input_audio_buffer.clear"}));
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.code === 'Space') {
+                stopRecording(false); // 정상적으로 뗐을 때
+            }
+        });
+
+        // (playAudio 함수는 기존과 동일)
+        let nextTime = 0;
+        function playAudio(base64) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const binary = window.atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            const floats = new Float32Array(bytes.length / 2);
+            const view = new DataView(bytes.buffer);
+            for (let i = 0; i < floats.length; i++) floats[i] = view.getInt16(i*2, true) / 32768;
+            const buffer = audioCtx.createBuffer(1, floats.length, 24000);
+            buffer.getChannelData(0).set(floats);
+            const src = audioCtx.createBufferSource();
+            src.buffer = buffer;
+            src.connect(audioCtx.destination);
+            if (nextTime < audioCtx.currentTime) nextTime = audioCtx.currentTime;
+            src.start(nextTime);
+            nextTime += buffer.duration;
+        }
+    </script>
+</body>
+</html>

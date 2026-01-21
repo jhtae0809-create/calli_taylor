@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Mr. Smith (Perfect Sync)</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #ececec; margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        #chat { flex: 1; overflow-y: scroll; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+        
+        /* 말풍선 스타일 업그레이드 */
+        .msg { padding: 12px 16px; border-radius: 12px; max-width: 80%; line-height: 1.5; font-size: 16px; position: relative; word-wrap: break-word; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        
+        .user { align-self: flex-end; background: #ffe812; color: #000; border-top-right-radius: 2px; }
+        .user::after { content: 'Students'; position: absolute; top: -18px; right: 0; font-size: 11px; color: #888; }
+        
+        .ai { align-self: flex-start; background: #fff; border: 1px solid #ddd; border-top-left-radius: 2px; }
+        .ai::after { content: 'Mr. Smith'; position: absolute; top: -18px; left: 0; font-size: 11px; color: #888; font-weight: bold; }
+
+        /* 상태 표시바 */
+        #controls { padding: 20px; background: white; text-align: center; border-top: 1px solid #ddd; }
+        .btn { padding: 12px 24px; font-size: 16px; font-weight: bold; cursor: pointer; background: #333; color: white; border: none; border-radius: 8px; transition: background 0.2s; }
+        .btn:hover { background: #555; }
+        
+        #status { font-weight: bold; margin-bottom: 12px; display: block; color: #555; font-size: 14px; }
+        .listening { color: #e74c3c; animation: pulse 1.5s infinite; }
+        .processing { color: #3498db; }
+        
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+    </style>
+</head>
+<body>
+    <div id="chat">
+        <div class="msg ai">Next student! Don't waste my time. What do you want?</div>
+    </div>
+    <div id="controls">
+        <span id="status">연결 대기 중...</span>
+        <button class="btn" id="connBtn" onclick="init()">🔌 상담 시작 (서버 연결)</button>
+        <p style="color:#666; font-size: 13px; margin-top: 10px;"><b>[Space]</b> 누르고 말하기 → 떼면 전송</p>
+    </div>
+
+    <script>
+        let socket, audioCtx, processor, source, stream;
+        let isRecording = false;
+        let currentAiBubble = null; 
+        let tempUserBubble = null; // 🔹 임시 내 말풍선 저장용
+
+        function init() {
+            socket = new WebSocket("ws://localhost:8000/ws/kim-secretary");
+            
+            socket.onopen = async () => {
+                document.getElementById('status').innerText = "✅ 준비 완료";
+                document.getElementById('connBtn').style.display = 'none';
+                
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 24000 });
+                stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                source = audioCtx.createMediaStreamSource(stream);
+                processor = audioCtx.createScriptProcessor(4096, 1, 1);
+                
+                source.connect(processor);
+                processor.connect(audioCtx.destination);
+
+                processor.onaudioprocess = (e) => {
+                    if (!isRecording) return;
+                    const inputData = e.inputBuffer.getChannelData(0);
+                    const pcmData = new Int16Array(inputData.length);
+                    for (let i = 0; i < inputData.length; i++) {
+                        const s = Math.max(-1, Math.min(1, inputData[i]));
+                        pcmData[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                    }
+                    let binary = '';
+                    const bytes = new Uint8Array(pcmData.buffer);
+                    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+                    
+                    socket.send(JSON.stringify({
+                        type: "input_audio_buffer.append",
+                        audio: window.btoa(binary)
+                    }));
+                };
+            };
+
+            socket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+
+                if (data.type === 'response.audio.delta') {
+                    playAudio(data.delta);
+                }
+                
+                // 🔹 내 진짜 자막이 도착했을 때
+                if (data.type === 'user_text') {
+                    if (tempUserBubble) {
+                        // 아까 만들어둔 임시 말풍선의 내용을 진짜로 교체!
+                        tempUserBubble.innerText = data.text;
+                        tempUserBubble = null; // 역할 끝났으니 초기화
+                    } else {
+                        // 만약 임시 말풍선이 없다면 새로 만듦 (혹시 모를 에러 방지)
+                        appendBubble(data.text, 'user');
+                    }
+                }
+
+                // AI 스트리밍
+                if (data.type === 'ai_stream') {
+                    if (!currentAiBubble) {
+                        currentAiBubble = appendBubble('', 'ai');
+                    }
+                    currentAiBubble.innerText += data.text;
+                    scrollToBottom();
+                }
+
+                if (data.type === 'ai_done') {
+                    currentAiBubble = null; 
+                }
+            };
+        }
+
+        function appendBubble(text, type) {
+            const div = document.createElement('div');
+            div.className = `msg ${type}`;
+            div.innerText = text;
+            document.getElementById('chat').appendChild(div);
+            scrollToBottom();
+            return div;
+        }
+
+        function scrollToBottom() {
+            const chat = document.getElementById('chat');
+            chat.scrollTop = chat.scrollHeight;
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && !isRecording) {
+                if(socket) socket.send(JSON.stringify({type: "input_audio_buffer.clear"}));
+                isRecording = true;
+                document.getElementById('status').innerText = "🎙️ 듣는 중...";
+                document.getElementById('status').className = "listening";
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.code === 'Space' && isRecording) {
+                isRecording = false;
+                document.getElementById('status').innerText = "⏳ 처리 중...";
+                document.getElementById('status').className = "processing";
+                
+                // 🔹 [핵심] 스페이스바 떼자마자 '...' 말풍선 먼저 생성!
+                // AI가 아무리 빨라도 내 말풍선이 무조건 위에 생김.
+                tempUserBubble = appendBubble("... (Thinking)", 'user');
+
+                if(socket) {
+                    socket.send(JSON.stringify({type: "input_audio_buffer.commit"}));
+                    socket.send(JSON.stringify({type: "response.create"}));
+                }
+            }
+        });
+
+        let nextTime = 0;
+        function playAudio(base64) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const binary = window.atob(base64);
+            const bytes = new Uint8Array(binary.length);
+            for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+            const floats = new Float32Array(bytes.length / 2);
+            const view = new DataView(bytes.buffer);
+            for (let i = 0; i < floats.length; i++) floats[i] = view.getInt16(i*2, true) / 32768;
+            
+            const buffer = audioCtx.createBuffer(1, floats.length, 24000);
+            buffer.getChannelData(0).set(floats);
+            const src = audioCtx.createBufferSource();
+            src.buffer = buffer;
+            src.connect(audioCtx.destination);
+            
+            if (nextTime < audioCtx.currentTime) nextTime = audioCtx.currentTime;
+            src.start(nextTime);
+            nextTime += buffer.duration;
+        }
+    </script>
+</body>
+</html>
