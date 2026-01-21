@@ -10,18 +10,16 @@ Taylor the educator / Secretary Kim / AI Voice Coaching Agent
 This project was developed as a **Rapid Prototype** to solve a personal pain point: the lack of accessible, real-time speaking practice partners.
 
 ## 🚀 Key Features
-- **Real-time Voice Interaction:** Utilizes **Vapi** to minimize latency, creating a natural "human-like" conversation flow.
+- **Real-time Voice Interaction:** Utilizes **OpenAI RealtimeAPI** to minimize latency, creating a natural "human-like" conversation flow.
 - **Scenario-Based Coaching:** Supports 15+ roleplay scenarios including *Business Negotiation, Hotel Check-in,* and *Casual Small Talk*.
 - **Noise Robustness:** Implemented input logic to filter background noise and prevent accidental interruptions.
 
 ## 🛠 Tech Stack
-- **Voice Infrastructure:** Vapi (Voice AI Platform)
-- **LLM:** OpenAI GPT-4o / Realtime API
+- **Voice Infrastructure:** Realtime API
 - **Language:** Python (AsyncIO, WebSockets)
 
 ## 📂 Project Structure
-- `src/`: Main application logic utilizing Vapi SDK.
-- `prompts/`: System prompts designed to maintain the "Coach" persona and handle edge cases.
+- 
 
 ## 🎯 How It Works
 1. The user selects a scenario (e.g., "Salary Negotiation").
