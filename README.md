@@ -1,35 +1,35 @@
-# Calli_Taylor
-Taylor the educator / Secretary Kim / AI Voice Coaching Agent
+# 🎙️ Taylor
+**AI Voice Coaching Agent (Project by Team Calli)**
 
 > **Real-time English conversation coach designed for Business & Travel scenarios.**
-> *Built with Vapi, OpenAI Realtime API, and Python.*
+> Powered by OpenAI Realtime API (WebSocket/Async).
 
 ## 💡 Overview
-**Calli** is a voice-first AI agent aimed at helping non-native speakers practice English in realistic scenarios. Unlike traditional text-based bots, Calli focuses on **latency, natural interruption, and scenario-based roleplay** using the latest Voice AI technology.
+**Taylor** is a voice-first AI agent developed by **Calli**, aimed at helping non-native speakers practice English in realistic scenarios. Unlike traditional TTS/STT pipelines, Taylor utilizes **OpenAI's Realtime API** to achieve ultra-low latency and natural turn-taking.
 
 This project was developed as a **Rapid Prototype** to solve a personal pain point: the lack of accessible, real-time speaking practice partners.
 
 ## 🚀 Key Features
-- **Real-time Voice Interaction:** Utilizes **OpenAI RealtimeAPI** to minimize latency, creating a natural "human-like" conversation flow.
+- **True Real-time Interaction:** Leverages **OpenAI Realtime API** for fluid, interruption-friendly conversations without the lag of traditional transcoding.
 - **Scenario-Based Coaching:** Supports 15+ roleplay scenarios including *Business Negotiation, Hotel Check-in,* and *Casual Small Talk*.
-- **Noise Robustness:** Implemented input logic to filter background noise and prevent accidental interruptions.
+- **Direct Audio Streaming:** Implemented raw audio streaming logic using Python AsyncIO for seamless bi-directional communication.
 
 ## 🛠 Tech Stack
-- **Voice Infrastructure:** Realtime API
-- **Language:** Python (AsyncIO, WebSockets)
-
-## 📂 Project Structure
-- 
+- **Core Engine:** OpenAI Realtime API (GPT-4o Audio)
+- **Protocol:** WebSockets
+- **Language:** Python (AsyncIO)
 
 ## 🎯 How It Works
-1. The user selects a scenario (e.g., "Salary Negotiation").
-2. Calli initiates the conversation with a scenario-specific opening.
-3. As the user speaks, Vapi processes the audio stream and triggers the LLM.
-4. Calli responds with corrected grammar suggestions and natural dialogue.
+1. The user starts the conversation with a specific topic (e.g., "Salary Negotiation").
+2. **Taylor** initiates the dialogue with a scenario-specific opening.
+3. The system streams audio directly to/from OpenAI, allowing for instant feedback.
+4. Taylor responds with natural dialogue, adopting a strict but helpful persona.
 
 ## 🔜 Future Improvements
-- Add a dashboard to visualize "Grammar Accuracy" over time.
-- Implement more detailed feedback reports after each session.
+- **Dashboard:** Visualize "Grammar Accuracy" and vocabulary usage over time.
+- **Dual Modes:**
+  - *Practice Mode:* Strict persona for intensive training.
+  - *Realtime Mode:* Instant assistance for real-world conversations (e.g., translating/hinting during a meeting).
 
 ---
 *Created by Hyuntae Jeong.*
