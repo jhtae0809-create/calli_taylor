@@ -1,7 +1,5 @@
-# Calli_taylor
-Taylor the educator / Secretary Kim
-
-# 🎙️ Calli: AI Voice Coaching Agent
+# Calli_Taylor
+Taylor the educator / Secretary Kim / AI Voice Coaching Agent
 
 > **Real-time English conversation coach designed for Business & Travel scenarios.**
 > *Built with Vapi, OpenAI Realtime API, and Python.*
