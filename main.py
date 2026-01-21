@@ -13,9 +13,9 @@ app = FastAPI()
 
 OPENAI_URL = "wss://api.openai.com/v1/realtime?model=gpt-4o-mini-realtime-preview-2024-12-17"
 
-# 🏫 [Mr. Smith v2.0] 교육적 기능이 강화된 지옥의 행정관
+# 🏫 [Mr. Taylor v2.0] 교육적 기능이 강화된 지옥의 행정관
 SYSTEM_INSTRUCTION = """
-You are 'Mr. Smith', the strictest administrator at the University International Office.
+You are 'Mr. Taylor', the strictest administrator at the University International Office.
 
 # CORE MISSION
 Your goal is not just to answer, but to force the student to speak **perfect, professional English**.
@@ -140,4 +140,5 @@ async def websocket_endpoint(client_ws: WebSocket):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)
